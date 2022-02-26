@@ -73,7 +73,7 @@ def transform(df):
     df = df.apply(split_patient_name, axis=1)
     df = df.apply(split_date_time, axis=1)
     df['Status'] = df.apply(lambda x: status_map[x.status], axis=1)
-    return df[['Study', 'Site_id', 'Subject_id', 'Timepoint', 'aq_date', 'aq_time', 'acquistion_time', 'Status', 'patient_name', 'date_added']]
+    return df[['Study', 'Site_id', 'Subject_id', 'Timepoint', 'modality', 'aq_date', 'aq_time', 'acquistion_time', 'Status', 'patient_name', 'date_added']]
 
 
 # https://xlsxwriter.readthedocs.io/example_pandas_conditional.html#ex-pandas-conditional
