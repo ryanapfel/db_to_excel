@@ -1,4 +1,6 @@
 
+from doctest import OutputChecker
+from tkinter.tix import DirList
 import pandas as pd
 from datetime import datetime
 import shutil
@@ -7,7 +9,16 @@ import sqlite3 as sql
 import xlsxwriter
 import re
 import click
+import configparser
 
+# ESTABLISH DEFAULTS
+config = configparser.ConfigParser()
+relativePath = os.path.dirname(os.path.abspath(__file__))
+config.read(f'{relativePath}/config.cfg')
+DBPATH = config['database']['database_path']
+MASTER_LOG_DEST = config['master']['destination'] + 'master_tracker.xlsx'
+DEFAULT_STUDY_DEST = config['master']['destination']
+STDUDY_DIRS = dict(config['studyDirs'])
 
 USER = os.path.expanduser('~')
 DB_PATH = f'{USER}/Documents/Horos Data/Database.sql'
@@ -79,7 +90,15 @@ def transform(df):
 # https://xlsxwriter.readthedocs.io/example_pandas_conditional.html#ex-pandas-conditional
 def write_excel(df, file_path):
     writer = pd.ExcelWriter(file_path, engine='xlsxwriter')
+    # Get the dimensions of the dataframe.
+    (max_row, max_col) = df.shape
     df.to_excel(writer, sheet_name='Tracker')
+    worksheet = writer.sheets['Tracker']
+
+
+    # Set the column widths, to make the dates clearer.
+    worksheet.set_column(1, max_col, 20)
+    worksheet.autofilter(0, 0, max_row, max_col - 1)
     writer.save()
 
 
@@ -87,16 +106,69 @@ def load(df, file_path):
     write_excel(df, file_path)
 
 
-@click.command()
-@click.option('--db_path', default=DB_PATH,  help='Location of Databse Path for HOROS or Osirix')
-@click.option('--output_path', default=EXCEL_PATH, help='Location of Databse Path for HOROS or Osirix')
-def run(db_path, output_path):
+@click.group()
+def cli():
+    pass
+
+@cli.command()
+@click.option('--db_path', default=DBPATH,  help='Location of Databse Path for HOROS or Osirix')
+@click.option('--study', help='Get a tracker output of all items for a particular study')
+@click.option('--output_path', default=DEFAULT_STUDY_DEST)
+def study(db_path, study, output_path):
+    print(f"Executing DB --> Spreadsheet for  {study}")
+    extension = f'{study}_tracker.xlsx'
+    path = output_path + extension
+    df = extract(db_path)
+    df = transform(df)
+    tdf = df[df['patient_name'].str.contains('timeless')]
+    print(tdf)
+    load(tdf, path)
+    print("Done!")
+
+
+
+@cli.command()
+def ls():
+    for i in STDUDY_DIRS:
+        print(i)
+
+
+
+
+@cli.command()
+@click.option('--db_path', default=DBPATH,  help='Location of Databse Path for HOROS or Osirix')
+@click.option('--output_path', default=MASTER_LOG_DEST, help='Location of Databse Path for HOROS or Osirix')
+def all(db_path, output_path):
+    print("Executing DB --> Spreadsheet")
     df = extract(db_path)
     df = transform(df)
     load(df, output_path)
     print("Done!")
 
 
+@cli.command()
+@click.option('--path', help='Directory to search for studies')
+@click.option('--output_path', default='', help='Ouput path, defaults to location of files')
+def directory(path, output_path):
+    print("Dirnames --> Spreadsheet")
+    if output_path=='':
+        output_path = path + 'log.xlsx'
+    else:
+        output_path += 'log.xlsx'
+
+
+    DirList = []
+    for files in os.listdir(path):
+        if os.path.isdir(os.path.join(path,files)):
+            DirList.append(files)
+    df = pd.DataFrame(DirList, columns=['patient_name'])
+    df = df.apply(split_patient_name, axis=1)
+    load(df[['Study','Site_id','Subject_id','Timepoint','Other','patient_name']], output_path)
+    print("Done!")
+
+
+
+
+
 if __name__ == '__main__':
-    print("Executing DB --> Spreadsheet")
-    run()
+    cli()
