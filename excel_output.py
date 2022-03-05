@@ -50,6 +50,13 @@ def extract(path):
     return dfh
 
 
+def is_int(element: any) -> bool:
+    try:
+        int(element)
+        return True
+    except ValueError:
+        return False
+
 def split_patient_name(row):
     try:
         split_data = re.split('[-_]', row.patient_name)
@@ -57,12 +64,16 @@ def split_patient_name(row):
         for idx, splitItem in enumerate(split_data):
             if idx == 0:
                 row['Study'] = splitItem
-            elif idx == 1:
-                row['Site_id'] = splitItem
-            elif idx == 2:
-                row['Subject_id'] = splitItem
+            elif idx == 1 and is_int(splitItem):
+                row['Site_id'] = int(splitItem)
+                row['Unresolved'] = False
+            elif idx == 2 and is_int(splitItem):
+                row['Subject_id'] = int(splitItem)
+                row['Unresolved'] = False
             elif idx == 3:
                 row['Timepoint'] = splitItem
+            elif (idx == 1 or idx == 2) and not is_int(splitItem):
+                row['Unresolved'] = True
             else:
                 other.append(splitItem)
 
@@ -84,7 +95,7 @@ def transform(df):
     df = df.apply(split_patient_name, axis=1)
     df = df.apply(split_date_time, axis=1)
     df['Status'] = df.apply(lambda x: status_map[x.status], axis=1)
-    return df[['Study', 'Site_id', 'Subject_id', 'Timepoint', 'modality', 'aq_date', 'aq_time', 'acquistion_time', 'Status', 'patient_name', 'date_added']]
+    return df[['Study', 'Site_id', 'Subject_id', 'Timepoint', 'modality', 'aq_date', 'aq_time', 'acquistion_time', 'Status', 'date_added','Unresolved','patient_name']]
 
 
 # https://xlsxwriter.readthedocs.io/example_pandas_conditional.html#ex-pandas-conditional
@@ -121,7 +132,6 @@ def study(db_path, study, output_path):
     df = extract(db_path)
     df = transform(df)
     tdf = df[df['patient_name'].str.contains('timeless')]
-    print(tdf)
     load(tdf, path)
     print("Done!")
 
@@ -137,7 +147,7 @@ def ls():
 
 @cli.command()
 @click.option('--db_path', default=DBPATH,  help='Location of Databse Path for HOROS or Osirix')
-@click.option('--output_path', default=MASTER_LOG_DEST, help='Location of Databse Path for HOROS or Osirix')
+@click.option('--output_path', default=MASTER_LOG_DEST, help='Location of Excel spradsheet output')
 def all(db_path, output_path):
     print("Executing DB --> Spreadsheet")
     df = extract(db_path)
@@ -166,7 +176,9 @@ def directory(path, output_path):
     load(df[['Study','Site_id','Subject_id','Timepoint','Other','patient_name']], output_path)
     print("Done!")
 
-
+@cli.command()
+def diff():
+    pass
 
 
 
