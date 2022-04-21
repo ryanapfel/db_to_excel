@@ -36,5 +36,6 @@ Temporary Items
 /spreadsheets
 /secrets
 /src/secrets
+/src/__pycache__
 
 test.ipynb
