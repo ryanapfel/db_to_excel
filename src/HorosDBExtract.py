@@ -92,7 +92,7 @@ class HorosDBExtract:
 
     def unresolvedLoad(self, df, writer, name):
         df = df[df['Status'] == 'Unresolved']
-        df = df[['Timepoint','modality','aq_date','aq_time','comment']]
+        df = df[['Study','Timepoint','modality','aq_date','aq_time','comment']]
         # create column for notes
         df['Resolution Notes'] = ''
 
