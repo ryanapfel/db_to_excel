@@ -1,3 +1,6 @@
 {
-    "nuxt.isNuxtApp": false
+  "nuxt.isNuxtApp": false,
+  "python.testing.pytestArgs": ["tests"],
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestEnabled": true
 }

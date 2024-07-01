@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "db-excel"
+version = "0.1.0"
+description = ""
+authors = ["Ryan Apfel <rasapfel@gmail.com>"]
+readme = "README.md"
+packages = [{include = "src"}]
+
+
+[tool.poetry.dependencies]
+python = "^3.12"
+xlsxlite = "^0.2.0"
+pandas = "^2.2.2"
+click = "^8.1.7"
+boto3 = "^1.34.136"
+xlsxwriter = "^3.2.0"
+pytest = "^8.2.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+
+[tool.poetry.scripts]
+excel_output = "excel_output:cli"

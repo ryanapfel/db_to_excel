@@ -1,42 +1,53 @@
-from doctest import OutputChecker
-import email
-from email import message
-from email.policy import default
-import pandas as pd
 from datetime import datetime
-import shutil
 import os
-import sqlite3 as sql
-import xlsxwriter
-import re
 import click
 import configparser
 from src.UserExtract import UserExtract
 from src.HorosDBExtract import HorosDBExtract
-from src.AutomaticEmail import TrackerEmail
+import tempfile
 
+from src.EmailClient import EmailClient
 import logging
 
 
 # ESTABLISH DEFAULTS
 config = configparser.ConfigParser()
 relativePath = os.path.dirname(os.path.abspath(__file__))
-config.read(f"{relativePath}/config.cfg")
-DBPATH = config["database"]["database_path"]
 
-MASTER_LOG_DEST = config["master"]["destination"]
+database_path = '~/Documents/Horos Data/Database.sql'
+users_db = '~/Library/Application Support/Horos/WebUsers.sql'
+master_dest = '~/Downloads'
+
+
+config.read(f"{relativePath}/config.cfg")
+DBPATH = os.path.expanduser(database_path)
+USER_DBPATH = os.path.expanduser(users_db)
+
+EMAIL ='ryan.apfel.nirc@gmail.com'
+
+MASTER_LOG_DEST = os.path.expanduser(master_dest)
 STDUDY_DIRS = config["studyDirs"]
-USER_DB = config["database"]["users_db"]
+
 USER_OUTPUT = config["master"]["destination"] + "user_tracker.xlsx"
 LEVEL = logging.INFO
-EMAIL = config["email"]["email"]
+
+
+
 logging.basicConfig(level=LEVEL)
 
 
 """
 Returns dataframe to do work directly from hors database
 """
+def ensure_directory(path):
+    """Ensure that the directory exists. Create it if it doesn't."""
+    if not os.path.exists(path):
+        os.makedirs(path)
+        logging.info(f"Created directory: {path}")
+    else:
+        logging.info(f"Directory already exists: {path}")
 
+# Ensure the master log destination directory exists
 
 @click.group()
 def cli():
@@ -46,7 +57,7 @@ def cli():
 @cli.command()
 @click.option("--output_path", default=USER_OUTPUT)
 def users(output_path):
-    ue = UserExtract(USER_DB, output_path)
+    ue = UserExtract(USER_DBPATH, output_path)
     ue.retrieve()
 
 
@@ -65,7 +76,6 @@ def users(output_path):
     default=MASTER_LOG_DEST,
     help="Directory of Excel spradsheet output. Will only output to this location if ouput directory is not alraedy set in config.cfg",
 )
-@click.option("-dt", "--date", is_flag=True)
 @click.option(
     "-u",
     "--unresolved",
@@ -138,54 +148,34 @@ def all(db_path, output_path, output_file, unresolved, timepoints):
     "-s",
     "--study",
     help="Study name to filter in database for. Case insensitive ",
-    default="admin",
+    required=True,
+
 )
-@click.option(
-    "--output_path",
-    default=MASTER_LOG_DEST,
-    help="Directory of Excel spradsheet that we want to send",
-)
-@click.option(
-    "--output_file", default="", help="Name of Excel Spreadsheet that we want to send"
-)
-def send(
-    study,
-    output_path,
-    output_file,
-):
-    if study in STDUDY_DIRS.keys():
-        output_path = STDUDY_DIRS[study]
-    else:
-        output_path = output_path
+@click.option("--to")
+def send(study, to):
+    output_file = f"{study}_tracker.xlsx"
+    logging.info(f'Connecting to {DBPATH}')
 
-    if output_file == "":
-        output_file = f"{study}_tracker.xlsx"
-
-    tracker_location = output_path + output_file
-
-    s = TrackerEmail(EMAIL, USER_DB)
-    s.send(study, trackerLocations=tracker_location)
+    relativePath = os.path.dirname(os.path.abspath(__file__))
+    
 
 
-# @cli.command()
-# @click.option('--path', help='Directory to search for studies')
-# @click.option('--output_path', default='', help='Ouput path, defaults to location of files')
-# def directory(path, output_path):
-#     print("Dirnames --> Spreadsheet")
-#     if output_path=='':
-#         output_path = path + 'log.xlsx'
-#     else:
-#         output_path += 'log.xlsx'
+    ensure_directory(MASTER_LOG_DEST)
 
+    with tempfile.TemporaryDirectory() as temp_dir:
+        tracker_location = os.path.join(temp_dir, output_file)
+        hdb = HorosDBExtract(dbpath=DBPATH)
+        hdb.ETL(output_path=tracker_location, unresolved=True, timepoints=True, study=study)
 
-#     # DirList = []
-#     # for files in os.listdir(path):
-#     #     if os.path.isdir(os.path.join(path,files)):
-#     #         DirList.append(files)
-#     # df = pd.DataFrame(DirList, columns=['patient_name'])
-#     # df = df.apply(split_patient_name, axis=1)
-#     # load(df[['Study','Site_id','Subject_id','Timepoint','Other','patient_name']], output_path)
-#     # print("Done!")
+        emailClient = EmailClient(EMAIL)        
+        
+        message = f"Hello, \n Attached is an automated tracker update for the study {study}. If you are receiving this message in error please contact davidliebeskind@yahoo.com. \n Thank you, \n NIRC Team"
+        subject = f"Updated Core Lab Tracker -- {study}"
+
+        if not os.path.exists(tracker_location):
+            raise ValueError(f"{tracker_location} does not contain a tracker)")
+
+        emailClient.send(to, subject, message, attachments=[tracker_location])
 
 
 if __name__ == "__main__":
