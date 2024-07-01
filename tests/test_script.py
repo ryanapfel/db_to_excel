@@ -3,7 +3,7 @@
 import pytest
 from click.testing import CliRunner
 from unittest.mock import patch, MagicMock
-from excel_output import cli
+from excel_output.cli import cli
 
 # Mocking os.makedirs to avoid creating directories during tests
 @patch("os.makedirs")

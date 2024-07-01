@@ -2,16 +2,14 @@ from datetime import datetime
 import os
 import click
 import configparser
-from src.UserExtract import UserExtract
-from src.HorosDBExtract import HorosDBExtract
 import tempfile
-
-from src.EmailClient import EmailClient
 import logging
 
+from excel_output.UserExtract import UserExtract
+from excel_output.HorosDBExtract import HorosDBExtract
+from excel_output.EmailClient import EmailClient
 
 # ESTABLISH DEFAULTS
-config = configparser.ConfigParser()
 relativePath = os.path.dirname(os.path.abspath(__file__))
 
 database_path = '~/Documents/Horos Data/Database.sql'
@@ -19,16 +17,15 @@ users_db = '~/Library/Application Support/Horos/WebUsers.sql'
 master_dest = '~/Downloads'
 
 
-config.read(f"{relativePath}/config.cfg")
+
 DBPATH = os.path.expanduser(database_path)
 USER_DBPATH = os.path.expanduser(users_db)
 
 EMAIL ='ryan.apfel.nirc@gmail.com'
 
 MASTER_LOG_DEST = os.path.expanduser(master_dest)
-STDUDY_DIRS = config["studyDirs"]
 
-USER_OUTPUT = config["master"]["destination"] + "user_tracker.xlsx"
+
 LEVEL = logging.INFO
 
 
@@ -54,11 +51,6 @@ def cli():
     pass
 
 
-@cli.command()
-@click.option("--output_path", default=USER_OUTPUT)
-def users(output_path):
-    ue = UserExtract(USER_DBPATH, output_path)
-    ue.retrieve()
 
 
 @cli.command()
@@ -106,11 +98,6 @@ def study(study, db_path, output_path, date, unresolved, timepoints):
     hdb = HorosDBExtract(dbpath=db_path)
     hdb.ETL(output_path=path, unresolved=unresolved, timepoints=timepoints, study=study)
 
-
-@cli.command()
-def ls():
-    for i in STDUDY_DIRS:
-        print(i)
 
 
 @cli.command()
