@@ -10,29 +10,38 @@ from excel_output.HorosDBExtract import HorosDBExtract
 from excel_output.EmailClient import EmailClient
 
 # ESTABLISH DEFAULTS
-relativePath = os.path.dirname(os.path.abspath(__file__))
-
-database_path = '~/Documents/Horos Data/Database.sql'
-users_db = '~/Library/Application Support/Horos/WebUsers.sql'
-master_dest = '~/Downloads'
+# ESTABLISH DEFAULTS
+config = configparser.ConfigParser()
+config_file = os.path.expanduser("~/.db_excel_config.cfg")
 
 
 
-DBPATH = os.path.expanduser(database_path)
-USER_DBPATH = os.path.expanduser(users_db)
 
-EMAIL ='ryan.apfel.nirc@gmail.com'
+def initialize_config():
+    if not os.path.exists(config_file):
+        config["paths"] = {
+            "database_path": "~/Documents/Horos Data/Database.sql",
+            "users_db": "~/Library/Application Support/Horos/WebUsers.sql",
+            "master_dest": "~/Downloads"
+        }
+        with open(config_file, "w") as f:
+            config.write(f)
 
-MASTER_LOG_DEST = os.path.expanduser(master_dest)
+def read_config():
+    if not os.path.exists(config_file):
+        initialize_config()
+    config.read(config_file)
 
+read_config()
 
+DBPATH = os.path.expanduser(config["paths"]["database_path"])
+USER_DBPATH = os.path.expanduser(config["paths"]["users_db"])
+MASTER_LOG_DEST = os.path.expanduser(config["paths"]["master_dest"])
+
+EMAIL = 'ryan.apfel.nirc@gmail.com'
 LEVEL = logging.INFO
 
-
-
 logging.basicConfig(level=LEVEL)
-
-
 """
 Returns dataframe to do work directly from hors database
 """
@@ -51,6 +60,16 @@ def cli():
     pass
 
 
+@cli.command()
+@click.argument("db_path")
+def set_dbpath(db_path):
+    """Set the database path and save it to config file."""
+    config["paths"]["database_path"] = db_path
+    with open(config_file, "w") as f:
+        config.write(f)
+    global DBPATH
+    DBPATH = os.path.expanduser(db_path)
+    click.echo(f"Database path set to: {DBPATH}")
 
 
 @cli.command()
@@ -143,11 +162,7 @@ def send(study, to):
     output_file = f"{study}_tracker.xlsx"
     logging.info(f'Connecting to {DBPATH}')
 
-    relativePath = os.path.dirname(os.path.abspath(__file__))
-    
 
-
-    ensure_directory(MASTER_LOG_DEST)
 
     with tempfile.TemporaryDirectory() as temp_dir:
         tracker_location = os.path.join(temp_dir, output_file)
