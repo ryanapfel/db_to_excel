@@ -5,7 +5,7 @@ import configparser
 import tempfile
 import logging
 
-from excel_output.UserExtract import UserExtract
+from excel_output.user import User
 from excel_output.HorosDBExtract import HorosDBExtract
 from excel_output.EmailClient import EmailClient
 
@@ -40,6 +40,7 @@ MASTER_LOG_DEST = os.path.expanduser(config["paths"]["master_dest"])
 
 EMAIL = 'ryan.apfel.nirc@gmail.com'
 LEVEL = logging.INFO
+NIRC_URL = "https://strokedrop.neurology.ucla.edu:7777/"
 
 logging.basicConfig(level=LEVEL)
 """
@@ -58,6 +59,46 @@ def ensure_directory(path):
 @click.group()
 def cli():
     pass
+
+
+@cli.command()
+@click.argument("email")
+def new_user(email):
+    logging.info(f"Checking user with email: {email} at {USER_DBPATH}")
+    user_client = User(USER_DBPATH)
+    email_client = EmailClient(EMAIL)
+
+    if user_client.user_exists(email):
+        logging.info(f"User with email {email} already exists.")
+        print(user_client.find_user_by_email(email))
+    else:
+        logging.info(f"User with email {email} does not exist. Creating user.")
+        user, password = user_client.insert_user(email)
+        print(f"User with email {email} created successfully.")
+        subject = "StrokeDrop - Account Credentials"
+        
+        body = (f"Hello,\n\nYour account has been created.\n\nEmail: {user}\n"
+                f"Password: {password}\n\nYou can log in at: {NIRC_URL}\n\n"
+                "Best Regards,\nNIRC Core Lab")
+
+        email_client.send(user, subject, body)
+
+        logging.info(f"Credentials email sent to {user}.")
+
+
+@cli.command()
+@click.argument("email")
+def delete_user(email):
+    logging.info(f"Attempting to delete user with email: {email} at {USER_DBPATH}")
+    user_client = User(USER_DBPATH)
+
+    if user_client.user_exists(email):
+        user_client.delete_user(email)
+        logging.info(f"User with email {email} deleted successfully.")
+        print(f"User with email {email} deleted successfully.")
+    else:
+        logging.info(f"User with email {email} does not exist.")
+        print(f"User with email {email} does not exist.")
 
 
 @cli.command()

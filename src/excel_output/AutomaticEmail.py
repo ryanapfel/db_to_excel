@@ -1,6 +1,6 @@
 from getpass import getuser
 from .EmailClient import EmailClient
-from .UserExtract import UserExtract
+from .user import UserExtract
 import re
 import os
 import logging
